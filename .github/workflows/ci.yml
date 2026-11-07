@@ -1,0 +1,44 @@
+name: CI Pipeline
+
+# Trigger: pipeline запускається автоматично при push або pull request
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build-and-test:
+    # Runner: середовище (віртуальна машина Ubuntu, де вже є Docker для нашої БД)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies (Build Stage)
+      run: |
+        python -m pip install --upgrade pip
+        # Встановлюємо залежності проєкту та бібліотеку для красивих HTML-звітів
+        pip install -e ".[test]"
+        pip install pytest-html
+
+    - name: Run Tests (Unit & Integration Stage)
+      # Запускаємо всі тести. Якщо хоч один впаде — цей крок світитиметься червоним
+      run: |
+        pytest tests/ --junitxml=test-results.xml --html=report.html --self-contained-html
+
+    - name: Upload Test Report Artifact
+      uses: actions/upload-artifact@v4
+      # Важливо: if: always() гарантує, що звіт збережеться НАВІТЬ якщо тести впали
+      if: always()
+      with:
+        name: test-report
+        path: |
+          test-results.xml
+          report.html
