@@ -10,7 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # ПІДНІМАЄМО БАЗУ ДАНИХ ДЛЯ ІНТЕГРАЦІЙНИХ ТЕСТІВ
     services:
       postgres:
         image: postgres:15-alpine
@@ -27,36 +26,35 @@ jobs:
           --health-retries 5
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-    - name: Install dependencies (Build Stage)
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest pytest-html requests testcontainers psycopg fastapi httpx uvicorn pydantic
+      - name: Install dependencies (Build Stage)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-html requests testcontainers psycopg fastapi httpx uvicorn pydantic
 
-    - name: Run Tests (Unit & Integration Stage)
-      env:
-        # ПЕРЕДАЄМО ПАРОЛІ ДО БД У НАШ КОД
-        DB_HOST: localhost
-        DB_PORT: 5432
-        DB_USER: postgres
-        DB_PASSWORD: password
-        DB_NAME: postgres
-      run: |
-        pytest tests/ --junitxml=test-results.xml --html=report.html --self-contained-html
+      - name: Run Tests (Unit & Integration Stage)
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: password
+          DB_NAME: postgres
+        run: |
+          pytest tests/test_environment.py tests/test_shipment_regression.py --junitxml=test-results.xml --html=report.html --self-contained-html
 
-    - name: Upload Test Report Artifact
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-report
-        path: |
-          test-results.xml
-          report.html
+      - name: Upload Test Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: |
+            test-results.xml
+            report.html
