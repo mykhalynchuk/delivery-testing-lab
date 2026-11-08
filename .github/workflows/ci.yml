@@ -1,6 +1,5 @@
 name: CI Pipeline
 
-# Trigger: pipeline запускається автоматично при push або pull request
 on:
   push:
     branches: [ "master", "main" ]
@@ -9,8 +8,23 @@ on:
 
 jobs:
   build-and-test:
-    # Runner: середовище (віртуальна машина Ubuntu, де вже є Docker для нашої БД)
     runs-on: ubuntu-latest
+
+    # ПІДНІМАЄМО БАЗУ ДАНИХ ДЛЯ ІНТЕГРАЦІЙНИХ ТЕСТІВ
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - name: Checkout code
@@ -24,18 +38,22 @@ jobs:
     - name: Install dependencies (Build Stage)
       run: |
         python -m pip install --upgrade pip
-        # Встановлюємо залежності проєкту та бібліотеку для красивих HTML-звітів
-        pip install -e ".[test]"
-        pip install pytest-html
-        pip install pytest pytest-html requests testcontainers psycopg fastapi httpx
+        pip install -e .
+        pip install pytest pytest-html requests testcontainers psycopg fastapi httpx uvicorn pydantic
+
     - name: Run Tests (Unit & Integration Stage)
-      # Запускаємо всі тести. Якщо хоч один впаде — цей крок світитиметься червоним
+      env:
+        # ПЕРЕДАЄМО ПАРОЛІ ДО БД У НАШ КОД
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: postgres
+        DB_PASSWORD: password
+        DB_NAME: postgres
       run: |
         pytest tests/ --junitxml=test-results.xml --html=report.html --self-contained-html
 
     - name: Upload Test Report Artifact
       uses: actions/upload-artifact@v4
-      # Важливо: if: always() гарантує, що звіт збережеться НАВІТЬ якщо тести впали
       if: always()
       with:
         name: test-report
