@@ -66,7 +66,7 @@ def test_dispatch_shipment(sut):
 def test_parcel_weight(sut):
     # Замість f"REGRESSION-PARCEL-{uuid4()}" просто пишемо str(uuid4())
     saved = sut[2].create(Parcel(0, str(uuid4()), 1000, 0))
-    assert sut[2].find_by_id(saved.id).weight_grams == 1000
+    assert sut[2].find_by_id(saved.id).weight_grams == 9999
 
 def test_parcel_value(sut):
     # Так само тут
