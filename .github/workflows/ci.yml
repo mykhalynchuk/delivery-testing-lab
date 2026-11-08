@@ -27,8 +27,7 @@ jobs:
         # Встановлюємо залежності проєкту та бібліотеку для красивих HTML-звітів
         pip install -e ".[test]"
         pip install pytest-html
-        pip install pytest pytest-html requests testcontainers psycopg
-
+        pip install pytest pytest-html requests testcontainers psycopg fastapi httpx
     - name: Run Tests (Unit & Integration Stage)
       # Запускаємо всі тести. Якщо хоч один впаде — цей крок світитиметься червоним
       run: |
