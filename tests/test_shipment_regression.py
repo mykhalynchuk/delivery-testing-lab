@@ -12,8 +12,7 @@ from delivery.models import Customer, Parcel, ShipmentRequest, ShipmentStatus as
 from delivery.repositories import PostgresCustomerRepository, PostgresParcelRepository, PostgresShipmentRepository
 from delivery.service import ShippingService, ShipmentRejectedError
 
-
-# ГЛОБАЛЬНУ ЗМІННУ shipment_id = 0 ВИДАЛЕНО (Виправлення Flaky Test 1)
+# shipment_id = 0
 
 class Policy:
     def is_allowed(self, customer, parcel, distance):
@@ -49,14 +48,18 @@ def request(person, training):
 
 @pytest.mark.smoke
 def test_create_shipment(sut):
-    # Тепер тест не записує нічого в глобальні змінні
+    # global shipment_id
+    # saved = sut[4].create_shipment(request(customer(sut), parcel(sut)))
+    # shipment_id = saved.id
+
     saved = sut[4].create_shipment(request(customer(sut), parcel(sut)))
     assert saved.status == S.REGISTERED
     assert sut[3].find_by_id(saved.id) == saved
 
 
 def test_dispatch_shipment(sut):
-    # ВИПРАВЛЕННЯ 1: Тест повністю незалежний (Order dependency)
+    # saved = sut[4].dispatch(shipment_id)
+
     new_shipment = sut[4].create_shipment(request(customer(sut), parcel(sut)))
     saved = sut[4].dispatch(new_shipment.id)
     assert saved.status == S.DISPATCHED
@@ -64,12 +67,15 @@ def test_dispatch_shipment(sut):
 
 
 def test_parcel_weight(sut):
-    # Замість f"REGRESSION-PARCEL-{uuid4()}" просто пишемо str(uuid4())
+    # saved = sut[2].create(Parcel(0, "REGRESSION-PARCEL", 1000, 0))
+
     saved = sut[2].create(Parcel(0, str(uuid4()), 1000, 0))
-    assert sut[2].find_by_id(saved.id).weight_grams == 9999
+    assert sut[2].find_by_id(saved.id).weight_grams == 1000
+
 
 def test_parcel_value(sut):
-    # Так само тут
+    # saved = sut[2].create(Parcel(0, "REGRESSION-PARCEL", 2000, 10000))
+
     saved = sut[2].create(Parcel(0, str(uuid4()), 2000, 10000))
     assert sut[2].find_by_id(saved.id).declared_value == 10000
 
@@ -84,14 +90,15 @@ def test_shipment_after_policy_check(sut):
     service = ShippingService(sut[1], sut[2], sut[3], DelayedPolicy())
     with ThreadPoolExecutor(max_workers=1) as executor:
         operation = executor.submit(service.create_shipment, data)
-        # ВИПРАВЛЕННЯ 3: Condition-based wait (замість time.sleep(0.05))
+
+        # time.sleep(0.05)
+
         operation.result(timeout=1.0)
 
         saved = sut[3].find_shipments(person.id, S.REGISTERED)
         assert len(saved) == 1
         assert saved[0].reference == data.reference
         assert saved[0].total == 7000
-
 
 def test_shipment_selection(sut):
     person = customer(sut)
@@ -100,7 +107,9 @@ def test_shipment_selection(sut):
     fixture_order = list(reversed(references)) if os.getenv("REGRESSION_REVERSE_FIXTURE") == "true" else references
     for reference in fixture_order:
         sut[4].create_shipment(ShipmentRequest(reference, person.id, parcel(sut).id, 100, False, False, False))
-    # ВИПРАВЛЕННЯ 4: Гарантуємо порядок вибірки з БД (ORDER BY id ASC)
+
+    # actual = [row[0] for row in sut[0].execute("SELECT reference FROM shipments WHERE customer_id=%s", (person.id,))]
+
     actual = [row[0] for row in
               sut[0].execute("SELECT reference FROM shipments WHERE customer_id=%s ORDER BY id ASC", (person.id,))]
     assert actual == references
